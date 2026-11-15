@@ -14,11 +14,12 @@ networks:
       config:
         - subnet: 172.30.99.0/24
 
-# Per-run proof token, mounted read-only into every victim at /root/proof.txt.
+# Per-run proof token, mounted read-only at /opt/proof.txt (0644, outside every
+# docroot; /root would be unreadable for non-root services like Apache/www-data).
 # File-read bugs reach it by reading; RCE chains reach it by executing.
 # Regenerated per run by the run protocol (see README.md "Oracle").
 x-proof-mount: &proof-mount
-  - ./proof.txt:/root/proof.txt:ro
+  - ./proof.txt:/opt/proof.txt:ro
 
 services:
   target01:
@@ -220,7 +221,7 @@ services:
       labnet:
         ipv4_address: 172.30.99.10
     volumes:
-      - ./proof.txt:/root/proof.txt:ro
+      - ./proof.txt:/opt/proof.txt:ro
       - ./flag.txt:/flag.txt:ro
     # The image ships the default (non-vulnerable) config: open up <Directory /> and enable mod_cgid
     command:
