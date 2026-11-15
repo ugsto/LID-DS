@@ -1,11 +1,29 @@
 # LID-DS targets lab for agent pentest evaluation
 
-Each malicious scenario of LID-DS (this repository) packaged as a ready target: the victim runs on the isolated `labnet` network and an AI pentest agent (PentAGI) attacks it in place of the LID-DS `exploit` container. Ground truth for every scenario exists in `../scenarios/<scenario>/` (README + exploit code).
+This repository is self-contained: cloning it brings everything — the LID-DS scenarios, the lab (`pentagi-lab/`), the eBPF telemetry collector (`collector/`) and PentAGI itself (`pentagi/`, a git submodule).
+
+```bash
+git clone --recurse-submodules https://github.com/ugsto/LID-DS
+cd LID-DS
+nix develop                  # toolchain: clang/bpftool/libbpf, docker, compose, python
+make collector               # build the telemetry collector (needs the host kernel BTF)
+make images                  # build the victim images + the lab-kali worker
+make check                   # prompt-matrix self-test
+```
+
+Then PentAGI: `cp pentagi/.env.example pentagi/.env`, apply the lines from `pentagi-lab/env.lab.example` (fill the LLM key) and bring the stack up per PentAGI's README.
+
+Each malicious scenario of LID-DS packaged as a ready target: the victim runs on the isolated `labnet` network and an AI pentest agent (PentAGI) attacks it in place of the LID-DS `exploit` container. Ground truth for every scenario exists in `../scenarios/<scenario>/` (README + exploit code).
 
 ## Files
 
 | File | Role |
 |---|---|
+| `../flake.nix` + `../Makefile` | Dev shell (toolchain) and top-level targets (`collector`, `images`, `check`, `solve-test`) |
+| `../collector/` | eBPF syscall telemetry collector (see Telemetry below) |
+| `../pentagi/` | PentAGI, as a git submodule (upstream `vxcontrol/pentagi`) |
+| `env.lab.example` | Template for the PentAGI `.env` additions (the filled `env.lab` stays outside git) |
+| `deepseek-flash.provider.yml` | Custom provider config all agents on one model (referenced by `env.lab.example`) |
 | `docker-compose.yml` | All 16 victims, one compose profile per scenario, neutral in-container names (`target01..target16` on `labnet`) |
 | `scenarios.py` | Single source of truth: profile ↔ target ↔ ip:port ↔ tier hints ↔ oracle type |
 | `templates/tier{0..3}.md` | Prompt templates for the hint ladder |
@@ -23,8 +41,8 @@ The agent must learn the target from the network, not from our labels. `dig -x`,
 
 ## Run protocol (pilot)
 
-1. **Build**: `./build-victims.sh` (needs internet). Then `./solve-test.sh all` with each profile up — a scenario that fails there is unsolvable for the agent offline; fix `worker/` first. No eval run before the suite is green.
-2. **PentAGI env**: apply `env.lab` (outside this repo) to PentAGI's `.env` — `DOCKER_NETWORK=labnet`, `DOCKER_INSIDE=false`, worker image `lab-kali`, `DUCKDUCKGO_ENABLED=false` (pilot is search-off; the ablation flips it on).
+1. **Build**: `nix develop`, then `make collector` and `make images` (needs internet). Then `make solve-test` with each profile up — a scenario that fails there is unsolvable for the agent offline; fix `worker/` first. No eval run before the suite is green.
+2. **PentAGI env**: copy `pentagi-lab/env.lab.example` to `env.lab` (outside git), fill `LLM_SERVER_KEY`, apply to PentAGI's `.env` — `DOCKER_NETWORK=labnet`, `DOCKER_INSIDE=false`, worker image `lab-kali`, `DUCKDUCKGO_ENABLED=false` (pilot is search-off; the ablation flips it on).
 3. **Per run** (one cell = one scenario at one tier) — `./run.sh begin <profile> <tier> <run#>` does the reset + token + telemetry (next section) and prints the prompt command (`./render.py --scenario <profile> --tier <0|2>`, paste into a new PentAGI flow). Before it:
    - Wipe agent memory between runs: `docker compose -f <pentagi compose> exec db psql -U $POSTGRES_USER -d $POSTGRES_DB -c 'TRUNCATE langchain_pg_embeddings, langchain_pg_collections;'`
    - Sanity-check shortcuts once per host: `docker exec <worker> ls /var/run/docker.sock` must fail (config already prevents it: the socket is bound into workers only when `DOCKER_INSIDE=true`, see `applyWorkerDockerAccess` in PentAGI's `pkg/docker/client.go`).
@@ -57,14 +75,14 @@ DB-row seeding (target02, target11, target13) is Phase 2. A tcpdump sidecar on `
 
 ## Telemetry (dataset generation)
 
-The syscall telemetry comes from `../collector/` (outside this repo, sibling of the LID-DS clone): an eBPF collector that records every syscall enter/exit with full arguments, file lifecycle (open/mmap/unlink/rename/…), exec (with argv/envp memory), fork, process exit and socket connect/bind — each record tagged with cgroup id, namespaces and a per-CPU sequence number, plus a loss proof (`counters.json`, `lossless: true`, exit code 3 otherwise).
+The syscall telemetry comes from `../collector/` (in this repository): an eBPF collector that records every syscall enter/exit with full arguments, file lifecycle (open/mmap/unlink/rename/…), exec (with argv/envp memory), fork, process exit and socket connect/bind — each record tagged with cgroup id, namespaces and a per-CPU sequence number, plus a loss proof (`counters.json`, `lossless: true`, exit code 3 otherwise).
 
 It does **not** run inside the victims (their images are ancient and BPF-LSM is host-kernel machinery). It runs as root on the host, scoped by cgroup:
 
 - FOCUS = the victim container's cgroup → those syscalls get `scope = 1` (S_FOCUS): this is the target's telemetry, the dataset proper.
 - OTHER = `OTHER_CGROUP` (default: the cgroup root) → `scope = 2` (S_OTHER). Set it to `/sys/fs/cgroup/system.slice` to bound host noise, or leave the root for full coverage — records can be filtered by `scope`/`cgid` at decode time.
 
-Requirements on the host: kernel with BPF-LSM (`cat /sys/kernel/security/lsm` must list `bpf`), cgroup v2 unified, root, and a collector build on that same kernel (`make -C ../collector` — clang, bpftool, libbpf; `vmlinux.h` is generated from the running kernel's BTF).
+Requirements on the host: kernel with BPF-LSM (`cat /sys/kernel/security/lsm` must list `bpf`), cgroup v2 unified, root, and a collector build on that same kernel (`make collector` in `nix develop` — `vmlinux.h` is generated from the running kernel's BTF, so build on the machine that records).
 
 `run.sh begin` resolves the victim's cgroup (`docker inspect` → `/proc/<pid>/cgroup`), starts the collector writing to `runs/<profile>/t<t>-r<n>/events.bin`, and `run.sh end` stops it (SIGTERM → drain → `counters.json`) and prints the oracle `grep`. The per-run dataset cell is that directory: `events.bin` + `counters.json` + `collector.log` + `report.md`.
 

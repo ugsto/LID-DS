@@ -1,0 +1,3 @@
+[submodule "pentagi"]
+	path = pentagi
+	url = https://github.com/vxcontrol/pentagi

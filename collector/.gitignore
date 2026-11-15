@@ -1,0 +1,5 @@
+collector
+collector.bpf.o
+collector.skel.h
+vmlinux.h
+syscalls.tsv

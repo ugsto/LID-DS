@@ -10,7 +10,7 @@
 # runs/<profile>/t<t>-r<n>/{events.bin,counters.json,collector.log,report.md}
 set -eu
 cd "$(dirname "$0")"
-ROOT="$(cd ../.. && pwd)"
+ROOT="$(cd .. && pwd)"
 COLLECTOR="${COLLECTOR:-$ROOT/collector/collector}"
 OTHER_CGROUP="${OTHER_CGROUP:-/sys/fs/cgroup}"
 STATE=.current-run

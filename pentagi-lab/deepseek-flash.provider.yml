@@ -1,0 +1,153 @@
+simple:
+  model: deepseek-flash
+  temperature: 0.3
+  top_p: 0.9
+  n: 1
+  max_tokens: 8192
+  reasoning:
+    mode: "off"
+  price:
+    input: 0.30
+    output: 1.20
+    cache_read: 0.006
+
+simple_json:
+  model: deepseek-flash
+  temperature: 0.3
+  top_p: 0.9
+  n: 1
+  max_tokens: 4096
+  json: true
+  reasoning:
+    mode: "off"
+  price:
+    input: 0.30
+    output: 1.20
+    cache_read: 0.006
+
+primary_agent:
+  model: deepseek-flash
+  n: 1
+  max_tokens: 16384
+  reasoning:
+    effort: high
+  price:
+    input: 0.30
+    output: 1.20
+    cache_read: 0.006
+
+assistant:
+  model: deepseek-flash
+  n: 1
+  max_tokens: 16384
+  reasoning:
+    effort: high
+  price:
+    input: 0.30
+    output: 1.20
+    cache_read: 0.006
+
+generator:
+  model: deepseek-flash
+  n: 1
+  max_tokens: 32768
+  reasoning:
+    effort: high
+  price:
+    input: 0.30
+    output: 1.20
+    cache_read: 0.006
+
+refiner:
+  model: deepseek-flash
+  n: 1
+  max_tokens: 32768
+  reasoning:
+    effort: high
+  price:
+    input: 0.30
+    output: 1.20
+    cache_read: 0.006
+
+adviser:
+  model: deepseek-flash
+  n: 1
+  max_tokens: 16384
+  reasoning:
+    effort: high
+  price:
+    input: 0.30
+    output: 1.20
+    cache_read: 0.006
+
+reflector:
+  model: deepseek-flash
+  temperature: 0.5
+  top_p: 0.9
+  n: 1
+  max_tokens: 8192
+  reasoning:
+    mode: "off"
+  price:
+    input: 0.30
+    output: 1.20
+    cache_read: 0.006
+
+searcher:
+  model: deepseek-flash
+  temperature: 0.5
+  top_p: 0.9
+  n: 1
+  max_tokens: 4096
+  reasoning:
+    mode: "off"
+  price:
+    input: 0.30
+    output: 1.20
+    cache_read: 0.006
+
+enricher:
+  model: deepseek-flash
+  temperature: 0.5
+  top_p: 0.9
+  n: 1
+  max_tokens: 4096
+  reasoning:
+    mode: "off"
+  price:
+    input: 0.30
+    output: 1.20
+    cache_read: 0.006
+
+coder:
+  model: deepseek-flash
+  n: 1
+  max_tokens: 20480
+  reasoning:
+    effort: high
+  price:
+    input: 0.30
+    output: 1.20
+    cache_read: 0.006
+
+installer:
+  model: deepseek-flash
+  n: 1
+  max_tokens: 12288
+  reasoning:
+    effort: high
+  price:
+    input: 0.30
+    output: 1.20
+    cache_read: 0.006
+
+pentester:
+  model: deepseek-flash
+  n: 1
+  max_tokens: 16384
+  reasoning:
+    effort: high
+  price:
+    input: 0.30
+    output: 1.20
+    cache_read: 0.006
