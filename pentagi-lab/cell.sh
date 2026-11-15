@@ -82,6 +82,7 @@ echo "flow: $FLOWID (http $code)"
 [ -n "$FLOWID" ] || { echo "FATAL: flow not created"; exit 1; }
 
 STATUS=timeout
+EARLY=0
 for i in $(seq 1 $((CELL_TIMEOUT_MIN * 2))); do
   sleep 30
   curl -sk -b "$JAR" -o "$RUNDIR/flow-status.json" "$PENTAGI_URL/api/v1/flows/$FLOWID"
@@ -91,7 +92,21 @@ d=json.load(open('$RUNDIR/flow-status.json'))['data']
 print(d['status'])")
   echo "$(date +%H:%M:%S) status: $STATUS"
   case "$STATUS" in waiting|finished|failed|stopped) break;; esac
+  # early-stop oracle: the moment the token surfaces in the message chain the
+  # cell is won — stop the flow instead of letting the rest of the plan burn
+  curl -sk -b "$JAR" -o "$RUNDIR/msgpage.json" \
+    "$PENTAGI_URL/api/v1/flows/$FLOWID/msglogs/?type=init&page=1&pageSize=100"
+  if grep -q "$TOKEN" "$RUNDIR/msgpage.json" 2>/dev/null; then
+    echo "$(date +%H:%M:%S) token seen — early stop"
+    curl -sk -b "$JAR" -o "$RUNDIR/stop.json" -X PATCH \
+      "$PENTAGI_URL/api/v1/flows/$FLOWID" -H 'Content-Type: application/json' \
+      -d '{"action":"stop"}'
+    STATUS=stopped
+    EARLY=1
+    break
+  fi
 done
+echo "$EARLY" > "$RUNDIR/early-stop"
 
 fetch_all msglogs "$RUNDIR/msglogs.ndjson"
 fetch_all termlogs "$RUNDIR/termlogs.ndjson"
@@ -127,9 +142,14 @@ try:
     c = json.load(open(f"{rd}/counters.json"))
 except Exception:
     pass
+try:
+    early = int(open(f"{rd}/early-stop").read().strip())
+except Exception:
+    early = 0
 summary = {
     "profile": profile, "tier": int(tier), "run": int(run), "flow_id": int(flowid),
     "flow_status": status, "verdict": verdict, "evidence": hits.strip(),
+    "early_stop": bool(early),
     "records": c.get("received"), "lossless": c.get("lossless"),
     "duration_s": int(__import__("time").time()) - int(start),
 }
