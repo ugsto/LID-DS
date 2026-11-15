@@ -16,7 +16,7 @@ OTHER_CGROUP="${OTHER_CGROUP:-/sys/fs/cgroup}"
 STATE=.current-run
 
 target_of() {
-  python3 -c "import sys; sys.path.insert(0,'.'); from scenarios import BY_PROFILE; print(BY_PROFILE['$1']['target'])"
+  python3 -c "import sys,os; sys.path.insert(0,'.'); from scenarios import BY_PROFILE; print(os.environ.get('LIDDS_TARGET_PREFIX','')+BY_PROFILE['$1']['target'])"
 }
 
 cmd_begin() {

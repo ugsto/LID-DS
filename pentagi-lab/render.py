@@ -32,8 +32,11 @@ LEAKS = {
 }
 
 
+import os
+
 def render(scenario: dict, tier: int) -> str:
-    ctx = {"ip": scenario["ip"]}
+    net = os.environ.get("LIDDS_NET", "99")
+    ctx = {"ip": scenario["ip"].replace("172.30.99.", f"172.30.{net}.")}
     if tier >= 1:
         ctx.update(surface=scenario["surface"], port=scenario["port"])
     if tier >= 2:
