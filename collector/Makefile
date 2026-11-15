@@ -3,6 +3,9 @@ ARCH_INCLUDE ?= /usr/include/x86_64-linux-gnu
 collector: collector.c collector.h collector.skel.h
 	$(CC) -O2 -Wall -o $@ collector.c -lbpf
 
+filter: filter.c
+	$(CC) -O2 -Wall -o $@ filter.c
+
 collector.skel.h: collector.bpf.o
 	bpftool gen skeleton $< > $@
 
@@ -16,4 +19,4 @@ syscalls.tsv:
 	awk '/^#define __NR_/ {sub("__NR_", "", $$2); print $$3 "\t" $$2}' $(ARCH_INCLUDE)/asm/unistd_64.h > $@
 
 clean:
-	rm -f collector collector.skel.h collector.bpf.o vmlinux.h syscalls.tsv
+	rm -f collector filter collector.skel.h collector.bpf.o vmlinux.h syscalls.tsv

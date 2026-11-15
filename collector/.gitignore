@@ -1,4 +1,5 @@
 collector
+filter
 collector.bpf.o
 collector.skel.h
 vmlinux.h

@@ -2,38 +2,40 @@
 # Builds the LID-DS victim images with their own Dockerfiles and pulls the
 # ready-made ones. Needs internet access (old-releases.ubuntu.com, Docker Hub).
 # Only victims: the normal/exploit images are for LID-DS recording, not PentAGI.
+# Usage: build-victims.sh [profile ...]   (no args = all scenarios + lab-kali)
 set -u
-S="$(cd "$(dirname "$0")/../scenarios" && pwd)"
+cd "$(dirname "$0")"
 FAIL=0
 
-build() { # <scenario dir> <image tag>
-  echo "==> build $2"
-  docker build -t "$2" "$S/$1/victim" || { echo "FAIL: $1" >&2; FAIL=1; }
+plan() { # emit "build <dir> <tag>" / "pull <ref>" lines for the given profiles
+  python3 - "$@" <<'PYEOF'
+import sys
+sys.path.insert(0, ".")
+from scenarios import SCENARIOS
+wanted = sys.argv[1:]
+for s in SCENARIOS:
+    if wanted and s["profile"] not in wanted:
+        continue
+    kind, a, *rest = s["image"]
+    print(f"{kind} {a} {rest[0] if rest else ''}".strip())
+PYEOF
 }
-pull() { # <image>
+
+build() {
+  echo "==> build $2"
+  docker build -t "$2" "../scenarios/$1/victim" || { echo "FAIL: $1" >&2; FAIL=1; }
+}
+pull() {
   echo "==> pull $1"
   docker pull "$1" || { echo "FAIL: $1" >&2; FAIL=1; }
 }
 
-build Bruteforce_CWE-307    victim_bruteforce
-build CVE-2014-0160         victim_heartbleed
-build CVE-2017-7529         victim_overflow
-build CVE-2018-3760         victim_sprockets
-build CVE-2019-5418         victim_rails
-build CVE-2020-13942        victim_unomi
-build CVE-2020-23839        victim_xss
-build CVE-2020-9484         victim_tomcat
-build CWE-89-SQL-injection  victim_sql
-build EPS_CWE-434           victim_eps
-build PHP_CWE-434           victim_php
-build ZipSlip               victim_zipslip
+while read -r kind a b; do
+  [ "$kind" = build ] && build "$a" "$b"
+  [ "$kind" = pull ] && pull "$a"
+done < <(plan "$@")
 
-# Scenarios whose victim is a ready-made image, no build needed
-pull vulhub/mysql:5.5.23
-pull vulhub/couchdb:2.1.0
-pull bkimminich/juice-shop:v10.0.0
-
-# Worker image with the offline tools the scenarios need (Java/ysoserial, mysql client)
+# The worker image is always needed
 echo "==> build lab-kali"
 docker build -t lab-kali worker/ || { echo "FAIL: lab-kali" >&2; FAIL=1; }
 
