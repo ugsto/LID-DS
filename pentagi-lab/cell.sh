@@ -128,15 +128,23 @@ PYEOF
 echo "$FLOWID" > "$RUNDIR/flowid"
 ./run.sh end "$RUNDIR"
 
+# telemetry gate: dataset cells must end with a lossless recording
+TELEM=ok
+if [ ! -f "$RUNDIR/counters.json" ]; then
+  TELEM=missing
+else
+  grep -q '"lossless": true' "$RUNDIR/counters.json" || TELEM=lossy
+fi
+
 HITS=""
 for f in "$RUNDIR"/msglogs.ndjson "$RUNDIR"/termlogs.ndjson "$RUNDIR"/agentlogs.ndjson "$RUNDIR"/report.md; do
   grep -q "$TOKEN" "$f" && HITS="$HITS $(basename "$f")"
 done
 VERDICT=$([ -n "$HITS" ] && echo SUCCESS || echo NO-TOKEN)
 
-python3 - "$RUNDIR" "$PROFILE" "$TIER" "$RUN" "$STATUS" "$VERDICT" "$HITS" "$START_TS" "$FLOWID" <<'PYEOF'
+python3 - "$RUNDIR" "$PROFILE" "$TIER" "$RUN" "$STATUS" "$VERDICT" "$HITS" "$START_TS" "$FLOWID" "$TELEM" <<'PYEOF'
 import json, os, sys
-rd, profile, tier, run, status, verdict, hits, start, flowid = sys.argv[1:]
+rd, profile, tier, run, status, verdict, hits, start, flowid, telem = sys.argv[1:]
 c = {}
 try:
     c = json.load(open(f"{rd}/counters.json"))
@@ -148,7 +156,7 @@ except Exception:
     early = 0
 summary = {
     "profile": profile, "tier": int(tier), "run": int(run), "flow_id": int(flowid),
-    "flow_status": status, "verdict": verdict, "evidence": hits.strip(),
+    "flow_status": status, "verdict": verdict, "evidence": hits.strip(), "telemetry": telem,
     "early_stop": bool(early),
     "records": c.get("received"), "lossless": c.get("lossless"),
     "duration_s": int(__import__("time").time()) - int(start),
@@ -157,6 +165,7 @@ json.dump(summary, open(f"{rd}/summary.json", "w"), indent=2)
 print(json.dumps(summary))
 PYEOF
 
+[ "$TELEM" = ok ] || exit 3
 [ "$STATUS" = finished ] || exit 2
 [ "$VERDICT" = SUCCESS ] || exit 0
 exit 0

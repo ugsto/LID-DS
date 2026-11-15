@@ -29,8 +29,20 @@ cmd_begin() {
   docker compose --profile "$profile" down -v >/dev/null 2>&1 || true
   [ -f proof.txt ] || cp proof.txt.example proof.txt
   openssl rand -hex 16 > proof.txt   # truncate-in-place: keeps the bind-mount inode
+  # a cell without its victim is no cell: refuse to run if the image is absent
+  local img
+  img=$(python3 -c "import sys; sys.path.insert(0,'.'); from scenarios import BY_PROFILE; print(BY_PROFILE['$profile']['image'][1])")
+  docker image inspect "$img" >/dev/null 2>&1 || { echo "FATAL: image $img missing — build it first" >&2; exit 1; }
   docker compose --profile "$profile" up -d
   sleep 2
+  local tname
+  tname=$(target_of "$profile")
+  [ "$(docker inspect -f '{{.State.Running}}' "$tname" 2>/dev/null)" = "true" ] \
+    || { echo "FATAL: victim $tname not running after compose up" >&2; exit 1; }
+  # cross-cell isolation: the victim must be the ONLY container on the lab network
+  for c in $(docker network inspect labnet -f '{{range .Containers}}{{.Name}} {{end}}' 2>/dev/null); do
+    [ "$c" = "$tname" ] || docker rm -f "$c" >/dev/null 2>&1 || true
+  done
 
   local pid cg
   pid=$(docker inspect -f '{{.State.Pid}}' "$target")

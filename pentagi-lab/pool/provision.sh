@@ -10,7 +10,7 @@ echo "=== pool provision $(date)"
 grep -qw bpf /sys/kernel/security/lsm || { echo "FATAL: no BPF-LSM"; exit 1; }
 
 apt-get update -qq
-apt-get install -y -qq docker.io docker-compose-v2 git make gcc clang libbpf-dev bpftool curl openssl python3 gawk >/dev/null
+apt-get install -y -qq docker.io docker-compose-v2 git make gcc clang libbpf-dev linux-tools-common linux-tools-generic curl openssl python3 gawk >/dev/null
 
 mkdir -p /opt
 [ -d /opt/LID-DS ] || git clone --recurse-submodules https://github.com/ugsto/LID-DS /opt/LID-DS
