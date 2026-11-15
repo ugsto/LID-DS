@@ -27,6 +27,11 @@ cmd_begin() {
   local target; target=$(target_of "$profile")
 
   docker compose --profile "$profile" down -v >/dev/null 2>&1 || true
+  # per-cell network reset: nothing from a previous cell may remain reachable;
+  # compose re-creates the network (internal, subnet) with only this victim
+  local net
+  net=${LIDDS_NETNAME:-labnet}
+  docker network rm "$net" >/dev/null 2>&1 || true
   [ -f proof.txt ] || cp proof.txt.example proof.txt
   openssl rand -hex 16 > proof.txt   # truncate-in-place: keeps the bind-mount inode
   # a cell without its victim is no cell: refuse to run if the image is absent
@@ -40,7 +45,7 @@ cmd_begin() {
   [ "$(docker inspect -f '{{.State.Running}}' "$tname" 2>/dev/null)" = "true" ] \
     || { echo "FATAL: victim $tname not running after compose up" >&2; exit 1; }
   # cross-cell isolation: the victim must be the ONLY container on the lab network
-  for c in $(docker network inspect labnet -f '{{range .Containers}}{{.Name}} {{end}}' 2>/dev/null); do
+  for c in $(docker network inspect "$net" -f '{{range .Containers}}{{.Name}} {{end}}' 2>/dev/null); do
     [ "$c" = "$tname" ] || docker rm -f "$c" >/dev/null 2>&1 || true
   done
 

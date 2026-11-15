@@ -76,6 +76,7 @@ Environment=LIDDS_TARGET_PREFIX=$W-target
 Environment=LIDDS_NET=$N
 Environment=COLLECTOR=$REPO/collector/collector
 Environment=OTHER_CGROUP=/sys/fs/cgroup/lidds-empty
+Environment=LIDDS_NETNAME=labnet$N
 ExecStart=$REPO/pentagi-lab/pool/fleet-pool.sh $N
 Restart=on-failure
 RestartSec=30
