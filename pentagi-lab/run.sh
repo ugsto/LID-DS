@@ -36,7 +36,7 @@ cmd_begin() {
   openssl rand -hex 16 > proof.txt   # truncate-in-place: keeps the bind-mount inode
   # a cell without its victim is no cell: refuse to run if the image is absent
   local img
-  img=$(python3 -c "import sys; sys.path.insert(0,'.'); from scenarios import BY_PROFILE; print(BY_PROFILE['$profile']['image'][1])")
+  img=$(python3 -c "import sys; sys.path.insert(0,'.'); from scenarios import BY_PROFILE; im = BY_PROFILE['$profile']['image']; print(im[2] if im[0]=='build' else im[1])")
   docker image inspect "$img" >/dev/null 2>&1 || { echo "FATAL: image $img missing — build it first" >&2; exit 1; }
   docker compose --profile "$profile" up -d
   sleep 2

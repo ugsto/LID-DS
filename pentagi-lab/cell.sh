@@ -23,7 +23,7 @@ PENTAGI_PROVIDER=${PENTAGI_PROVIDER:-custom}
 CELL_TIMEOUT_MIN=${CELL_TIMEOUT_MIN:-120}
 START_TS=$(date +%s)
 
-./run.sh begin "$PROFILE" "$TIER" "$RUN"
+./run.sh begin "$PROFILE" "$TIER" "$RUN" || { echo "FATAL: run.sh begin failed — victim not available" >&2; exit 1; }
 RUNDIR="runs/$PROFILE/t${TIER}-r${RUN}"
 TOKEN=$(python3 -c "print(open('proof.txt').read().strip())")
 JAR=$RUNDIR/jar.txt
