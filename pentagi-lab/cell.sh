@@ -85,6 +85,12 @@ STATUS=timeout
 EARLY=0
 for i in $(seq 1 $((CELL_TIMEOUT_MIN * 2))); do
   sleep 30
+  # pentagi sessions expire mid-cell: re-authenticate every 10 cycles (5 min)
+  if [ $((i % 10)) -eq 1 ] && [ "$i" -gt 1 ]; then
+    curl -sk -c "$JAR" -o /dev/null -X POST "$PENTAGI_URL/api/v1/auth/login" \
+      -H 'Content-Type: application/json' \
+      -d "{\"mail\":\"$PENTAGI_MAIL\",\"password\":\"$PENTAGI_PASS\"}"
+  fi
   curl -sk -b "$JAR" -o "$RUNDIR/flow-status.json" "$PENTAGI_URL/api/v1/flows/$FLOWID"
   STATUS=$(python3 -c "
 import json
