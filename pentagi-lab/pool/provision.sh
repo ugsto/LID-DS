@@ -8,7 +8,8 @@ export DEEPSEEK_KEY="${DEEPSEEK_KEY:?env}"
 
 echo "=== pool provision $(date)"
 # containers on lab bridges must not reach host services (sshd et al.)
-iptables -C INPUT -i br-+ -j DROP 2>/dev/null || iptables -I INPUT -i br-+ -j DROP
+iptables -C INPUT -i br-+ -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || iptables -I INPUT -i br-+ -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -C INPUT -i br-+ -j DROP 2>/dev/null || iptables -A INPUT -i br-+ -j DROP
 grep -qw bpf /sys/kernel/security/lsm || { echo "FATAL: no BPF-LSM"; exit 1; }
 
 apt-get update -qq
